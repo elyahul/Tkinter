@@ -9,6 +9,16 @@ import os.path
 import sys
 import time
 
+allowed_hosts = ['ndlg']
+denied_hosts = ['lync', 'skp']
+ignored_hosts = ['rar7app']
+tcpdenied_ports = ['5061', '3389']
+udpdenied_ports = ['5100']
+most_used_ports = ['80', '443', '389', '139', '445' , '137', '135']
+denied_subnets = ["192.168.0.0/24"]
+dup_dict = {}
+hostnames = []
+new_idx_list = []
 
 class Frame(ttk.Frame):                                                                 ### Master Frame Class Definition   
     def __init__(self, master):
@@ -308,4 +318,50 @@ if __name__ == "__main__":
     
     duplicate_hosts_list(host_list, host_dict)                      ### Sort Duplicate Hostnames
 
-   
+    for hostname,idx_list in dup_dict.items():
+        s = Setter()
+        vl = Validator()
+        if (vl.check_hostname(hostname, denied_hosts) == True):
+            for idx in idx_list:
+                g = Getter(idx)
+                s.action_column_setter(dframe, idx, 'Block')
+                s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be blocked')
+            hostnames.append(hostname)
+        elif (vl.check_hostname(hostname, allowed_hosts) == True):
+            for idx in idx_list:
+                g = Getter(idx)
+                s.action_column_setter(dframe, idx, 'Allow')
+                s.comments_column_setter(dframe, idx, 'Allowed but investigate ..')
+            hostnames.append(hostname)
+        elif (vl.check_hostname(hostname, ignored_hosts) == True):
+            for idx in idx_list:
+                g = Getter(idx)
+                s.action_column_setter(dframe, idx, 'Ignore')
+                s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be ignored')
+            hostnames.append(hostname)
+        else:
+            for idx in idx_list:
+                g = Getter(idx)
+                if (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
+                    s.action_column_setter(dframe, idx, 'Block')
+                    new_idx_list.append(idx)
+                elif (vl.check_ports(g.dst_port, udpdenied_ports) == True):
+                    s.action_column_setter(dframe, idx, 'Block')
+                    new_idx_list.append(idx)
+                elif (vl.check_hits(g.hit_nmbr, 5) == True):
+                    s.action_column_setter(dframe, idx, 'Ignore')
+                    s.comments_column_setter(dframe, idx, 'Less then 5 hits')
+                    new_idx_list.append(idx)
+                elif (vl.check_broadcast(g.dst_ip) == True):
+                    s.action_column_setter(dframe, idx, 'Ignore')
+                    new_idx_list.append(idx)
+                else:
+                    for subnet in denied_subnets:
+                        if vl.check_ip(g.dst_ip, subnet) == True:
+                            s.action_column_setter(dframe, idx, 'Block')
+                            s.comments_column_setter(dframe, idx, 'Bad subnet')
+                            new_idx_list.append(idx)
+                            break
+                        else:
+                            s.comments_column_setter(dframe, idx, 'UNDEFINED')
+
