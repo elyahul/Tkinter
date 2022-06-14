@@ -1,11 +1,13 @@
+import pandas as pd
+import ipaddress
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
-import pandas as pd
+from tkinter import font
+import re
 import os.path
 import sys
 import time
-import pandas as pd
 
 
 class Frame(ttk.Frame):                                                                 ### Master Frame Class Definition   
@@ -22,16 +24,6 @@ class Frame(ttk.Frame):                                                         
         self.master.withdraw()
         ef = Enter_Frame(self)
         ef.protocol("WM_DELETE_WINDOW",lambda: self.quit())
-
-    @property
-    def filepath(self):
-        global dframe
-        try:
-            if ef._filepath:
-                dframe = pd.read_excel(ef._filepath)
-                return dframe
-        except exception as e:
-            print(e)
 
     def quit(self):
         self.master.destroy()
@@ -69,6 +61,7 @@ class Enter_Frame(tk.Toplevel):
     def submit(self):
         self._path = self.filepath_var.get()
         self.filepath_validation()
+        self.filepath                                                                              ### property "getter" attribute
         self.after(700, self.chain_foo)
     
     def filepath_validation(self):
@@ -89,7 +82,6 @@ class Enter_Frame(tk.Toplevel):
             self.error_label.grid(row=4, columnspan=2, pady=(2,7))
             self.after(500, self.withdraw)
             self._filepath = self._path
-            assert type(self._filepath) == str
             return  self._filepath
         
     @property
@@ -99,33 +91,33 @@ class Enter_Frame(tk.Toplevel):
             if self._filepath:
                 dframe = pd.read_excel(self._filepath)
                 return dframe
-        except exception as e:
-            print(e)
-                  
+        except ValueError as error:
+            messagebox.showerror(message=error)
+            self.master.destroy()
+            sys.exit()
+                   
     def chain_foo(self):
         if self._filepath:
-            result = tk.messagebox.askyesno(message="Want to add new variables ?")
+            result = messagebox.askyesno(message="Add new variables ?")
             if result == True:
-                print(self.filepath)
                 self.checkbox_strater()
             elif result == False:
-                print(self.filepath)
-                self.destroy()
                 self.master.destroy()
                
     def checkbox_strater(self):
         ch = CheckBox_Frame(self, ['allowed_hosts', 'denied_hosts', 'tcpdenied_ports', 'udpdenied_ports'])
             
 class Input_Frame(tk.Tk):
-    def __init__(self, text):
+    def __init__(self, text_var):
         super().__init__()
+        self.var = text_var
+        self._checkbox_dict = self.checkbox_dict
         global checkbox_dict
         checkbox_dict = {}
         self.title('New Variables Entry Widget')
         self._input = tk.StringVar()
         self._input_value = None
-        self.var = text
-        self.text= "Input new " + text
+        self.text= "Input new " + text_var
         self.input_entry = ttk.Entry(self, textvariable=self._input, width=50)
         self.input_entry.grid(row=2, columnspan=2, padx=5,pady=(2,7))
         self.input_entry.insert(0, self.text)
@@ -151,7 +143,7 @@ class Input_Frame(tk.Tk):
     def submit(self):
         self._input_value = self._input.get()
         if 'port' in self.var:
-            self.port_checker(self.var, )
+            self.port_checker(self.var)
         elif 'host' in self.var:
             self.host_checker(self.var)
     
@@ -190,6 +182,15 @@ class Input_Frame(tk.Tk):
                 checkbox_dict[var] = host_list
                 self.destroy()
                 return checkbox_dict
+    @property
+    def checkbox_dict(self):
+        return self._checkbox_dict
+            
+    @checkbox_dict.setter
+    def checkbox_dict(self):
+        self._checkbox_dict = checkbox_dict
+        return self._checkbox_dict
+    
         
 
 class CheckBox_Frame(tk.Toplevel):
@@ -208,7 +209,7 @@ class CheckBox_Frame(tk.Toplevel):
         self.submit_button.pack(padx = 2, pady = 2)
         self.focus_force()
 
-    def submit(self):                                         ### code for "submit button"
+    def submit(self):                                          ### code for "submit button"
         check_list = []
         for idx,item in enumerate(self.vars):
             if item.get() == True:
@@ -216,8 +217,7 @@ class CheckBox_Frame(tk.Toplevel):
         self.master.destroy()
         for item in check_list:
             self.inputframe_starter(item)
-        
-       
+         
     def checked(self, var):                                    ### what happens when "checkbox" is checked
         idx = (check_list).index(var)
         self.var_value_list[idx]=var.get()
@@ -227,14 +227,85 @@ class CheckBox_Frame(tk.Toplevel):
         iframe = Input_Frame(var)
         iframe.mainloop()
         
-   
+def duplicate_hosts_list(lst, dct):
+    global key_list
+    global new_list
+    new_list = []
+    key_list = []
+    for idx,hostname in enumerate(lst):
+        if hostname != lst[0]:
+            break
+        if (idx == len(lst)-1):
+            idx = idx + 1
+    new_list = lst[(idx):]
+    for (key,val) in dct.items():
+        if dct[key] == lst[0]:
+            key_list.append(key)
+    dup_dict[lst[0]] = key_list
+    for key in key_list:
+        host_dict.pop(key)
+    return (new_list, dup_dict)
+
+
+
+class Getter():
+    def __init__(self, index):
+        self.idx = index
+        self.row = dframe.iloc[self.idx,:]
+        self.dst_ip = self.row.Destination
+        self.dst_port = self.row.Port
+        self.dst_proto = self.row.Protocol
+        self.dst_hostname = self.row.Destination_HostName
+        self.hit_nmbr = self.row.Hits
+        
+class Setter():
+    @staticmethod
+    def action_column_setter(df, index, action):
+        df.at[index, 'Action'] = action
+    def comments_column_setter(self, df, index, comment):
+        df.at[index, 'Comments'] = comment
+        
+        
+class Checker():
+    def __init__(self, index):
+        self.index = index
+    def check_ports(self, port, port_list):
+        var = port in port_list
+        return var
+    def check_ip(self, ip, subnet):
+        host  = ipaddress.ip_address(ip)
+        net = ipaddress.ip_network(subnet)
+        var = host in net
+        return var
+    def check_broadcast(self, ip):
+        iface = ipaddress.ip_interface(ip+'/24')
+        broadcast = iface.network.broadcast_address
+        var = ip in broadcast.exploded
+        return var
+    def check_hits(self, hits, hit_nmbr):
+        var = (hits <= hit_nmbr)
+        return var
+    def check_hostname(self, hostname, host_list):
+        for pattern in host_list:
+            var = bool(re.search(pattern, hostname))
+            if var == True:
+                break
+        return var   
     
 
 if __name__ == "__main__":
     root = tk.Tk()
     fr = Frame(root)
     root.mainloop()
-    print('exit')
-    print(checkbox_dict)
-    l = [1,2,3]
-    print(l)
+    
+    pd.set_option('display.max_columns', None)
+    pd.set_option('max_colwidth', None)
+    pd.set_option('display.max_rows', None)
+    pd.set_option("expand_frame_repr", False)
+    print(dframe)
+    host_list = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_list()
+    host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
+    
+    duplicate_hosts_list(host_list, host_dict)                      ### Sort Duplicate Hostnames
+
+   
