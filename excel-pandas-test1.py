@@ -41,6 +41,7 @@ def duplicate_hosts_list(lst, dct):
 
 
 
+
 class Getter():
     def __init__(self, index):
         self.idx = index
@@ -55,15 +56,12 @@ class Setter():
     @staticmethod
     def action_column_setter(df, index, action):
         df.at[index, 'Action'] = action
-        
     @staticmethod
     def comments_column_setter(df, index, comment):
         df.at[index, 'Comments'] = comment
         
         
 class Validator():
-    def __init__(self, index):
-        self.index = index
     def check_ports(self, port, port_list):
         var = port in port_list
         return var
@@ -99,8 +97,6 @@ def starter():
 if __name__=='__main__':
     
     dframe = pd.read_excel (r'C:\Users\user\Documents\MAIPU - RFC.xlsx')
-##    print(dframe)
-##    starter()
     pd.set_option('display.max_columns', None)
     pd.set_option('max_colwidth', None)
     pd.set_option('display.max_rows', None)
@@ -113,14 +109,27 @@ if __name__=='__main__':
     
     while len(new_list)>0:
         duplicate_hosts_list(new_list, host_dict)
-
     for hostname,idx_list in dup_dict.items():
-        print(hostname,idx_list)
         s = Setter()
-        for idx in idx_list:
-            g = Getter(idx)
-            vl = Validator(idx)
-            if hostname == 'Cannot resolve hostname':
+        vl = Validator()
+        if (vl.check_hostname(hostname, denied_hosts) == True):
+            for idx in idx_list:
+                s.action_column_setter(dframe, idx, 'Block')
+                s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be blocked')
+            hostnames.append(hostname)
+        elif (vl.check_hostname(hostname, allowed_hosts) == True):
+            for idx in idx_list:
+                s.action_column_setter(dframe, idx, 'Allow')
+                s.comments_column_setter(dframe, idx, 'Allowed but investigate ..')
+            hostnames.append(hostname)
+        elif (vl.check_hostname(hostname, ignored_hosts) == True):
+            for idx in idx_list:
+                s.action_column_setter(dframe, idx, 'Ignore')
+                s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be ignored')
+            hostnames.append(hostname)
+        else:
+            for idx in idx_list:
+                g = Getter(idx)
                 if (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
                     new_idx_list.append(idx)
@@ -129,6 +138,7 @@ if __name__=='__main__':
                     new_idx_list.append(idx)
                 elif (vl.check_hits(g.hit_nmbr, 5) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
+                    s.comments_column_setter(dframe, idx, 'Less then 5 hits')
                     new_idx_list.append(idx)
                 elif (vl.check_broadcast(g.dst_ip) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
@@ -137,36 +147,13 @@ if __name__=='__main__':
                     for subnet in denied_subnets:
                         if vl.check_ip(g.dst_ip, subnet) == True:
                             s.action_column_setter(dframe, idx, 'Block')
+                            s.comments_column_setter(dframe, idx, 'Bad subnet')
                             new_idx_list.append(idx)
                             break
                         else:
                             s.comments_column_setter(dframe, idx, 'UNDEFINED')
-            elif (vl.check_hostname(hostname, denied_hosts) == True):
-                s.action_column_setter(dframe, idx, 'Block')
-                s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be blocked')
-                hostnames.append(hostname)
-            elif (vl.check_hostname(hostname, allowed_hosts) == True):
-                s.action_column_setter(dframe, idx, 'Allow')
-                s.comments_column_setter(dframe, idx, 'Allowed but investigate ..')
-                hostnames.append(hostname)
-            elif (vl.check_hostname(hostname, ignored_hosts) == True):
-                s.action_column_setter(dframe, idx, 'Ignore')
-                s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be ignored')
-                hostnames.append(hostname)
-            else:
-                if (vl.check_ports(g.dst_port, udpdenied_ports) == True) or (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
-                    s.action_column_setter(dframe, idx, 'Block')
-                    s.comments_column_setter(dframe, idx, 'Traffic to/from this Port will be blocked')
-                    new_idx_list.append(idx)
-                elif (vl.check_hits(g.hit_nmbr, 5) == True):
-                    s.action_column_setter(dframe, idx, 'Ignore')
-                    s.comments_column_setter(dframe, idx, 'Less then 5 hits')
-                    new_idx_list.append(idx)
-                else:
-                    s.action_column_setter(dframe, idx, 'NN')
-                    s.comments_column_setter(dframe, idx, '')
-                    
-
+            
+            
 print(dframe.sort_values(by=['Action'], ascending=True))
 ##    final_logfile = input('Please Insert Final Excel Log File  Desired Location ...')
 ##    dframe.to_excel(final_logfile)
