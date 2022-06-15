@@ -16,19 +16,30 @@ tcpdenied_ports = ['5061', '3389']
 udpdenied_ports = ['5100']
 most_used_ports = ['80', '443', '389', '139', '445' , '137', '135']
 denied_subnets = ["192.168.0.0/24"]
-dup_dict = {}
-hostnames = []
-new_idx_list = []
 
-class Frame(ttk.Frame):                                                                 ### Master Frame Class Definition   
+
+class Frame(ttk.Frame):                                                                 ### Main Frame Class Definition   
     def __init__(self, master):
         super().__init__(master)
         self.master.title('GUI Application')
         self.master.geometry('300x100')
         self.master.resizable(True,True)
+        self.label = ttk.Label(self, text='Press Submit Button To Start Application', font=("Courier", 13))
+        self.label.grid(row =2, columnspan=2, padx=10, pady=(20,5) )
+        self.exit_button = ttk.Button(self, text='Exit', command=self.master.destroy)
+        self.exit_button.grid(row=5, column=1, padx=1, pady=(12,5), sticky='e')
         self.submit_button = ttk.Button(self, text='Submit', command=self.starter)
-        self.submit_button.grid(padx=5, pady=(12,5), sticky='e')
+        self.submit_button.grid(row=5, column=0, padx=15, pady=(12,5), sticky='w')
         self.grid()
+        
+    def center_window(self, width, height):
+        # get screen width and height
+        screen_width = self.master.winfo_screenwidth()
+        screen_height = self.master.winfo_screenheight()
+        # calculate position x and y coordinates
+        x = (screen_width/2) - (width/2)
+        y = (screen_height/2) - (height/2)
+        self.master.geometry('%dx%d+%d+%d' % (width, height, x, y))
 
     def starter(self):
         self.master.withdraw()
@@ -42,6 +53,9 @@ class Frame(ttk.Frame):                                                         
 class Enter_Frame(tk.Toplevel):
     def __init__(self, master):
         super().__init__()
+        x = self.master.winfo_x()
+        y = self.master.winfo_y()
+        self.geometry("+%d+%d" % (x + 100, y + 200))
         self.title('Log file path Entry Frame')
         self._path = None
         self._filepath = None 
@@ -236,28 +250,9 @@ class CheckBox_Frame(tk.Toplevel):
     def inputframe_starter(self, var):
         iframe = Input_Frame(var)
         iframe.mainloop()
-        
-def duplicate_hosts_list(lst, dct):
-    global key_list
-    global new_list
-    new_list = []
-    key_list = []
-    for idx,hostname in enumerate(lst):
-        if hostname != lst[0]:
-            break
-        if (idx == len(lst)-1):
-            idx = idx + 1
-    new_list = lst[(idx):]
-    for (key,val) in dct.items():
-        if dct[key] == lst[0]:
-            key_list.append(key)
-    dup_dict[lst[0]] = key_list
-    for key in key_list:
-        host_dict.pop(key)
-    return (new_list, dup_dict)
 
 
-
+## Pandas DataFrame Calculation Code         
 class Getter():
     def __init__(self, index):
         self.idx = index
@@ -272,13 +267,11 @@ class Setter():
     @staticmethod
     def action_column_setter(df, index, action):
         df.at[index, 'Action'] = action
-    def comments_column_setter(self, df, index, comment):
+    @staticmethod
+    def comments_column_setter(df, index, comment):
         df.at[index, 'Comments'] = comment
-        
-        
-class Checker():
-    def __init__(self, index):
-        self.index = index
+     
+class Validator():
     def check_ports(self, port, port_list):
         var = port in port_list
         return var
@@ -300,24 +293,46 @@ class Checker():
             var = bool(re.search(pattern, hostname))
             if var == True:
                 break
-        return var   
+        return var
     
+def duplicate_hosts_list(lst, dct):                       ### function for sorting duplicate hostnames
+    global dup_dict
+    global key_list
+    global new_list
+    new_list = []
+    key_list = []
+    for idx,hostname in enumerate(lst):
+        if hostname != lst[0]:
+            break
+        if (idx == len(lst)-1):
+            idx = idx + 1
+    new_list = lst[(idx):]
+    for (key,val) in dct.items():
+        if dct[key] == lst[0]:
+            key_list.append(key)
+    dup_dict[lst[0]] = key_list
+    for key in key_list:
+        host_dict.pop(key)
+    return (new_list, dup_dict)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
     fr = Frame(root)
+    fr.center_window(440, 200)
     root.mainloop()
     
     pd.set_option('display.max_columns', None)
     pd.set_option('max_colwidth', None)
     pd.set_option('display.max_rows', None)
     pd.set_option("expand_frame_repr", False)
-    print(dframe)
     host_list = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_list()
     host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
     
     duplicate_hosts_list(host_list, host_dict)                      ### Sort Duplicate Hostnames
-
+    while len(new_list)>0:
+        duplicate_hosts_list(new_list, host_dict)                   ### Create final dict with duplicate hostnemes
+        
     for hostname,idx_list in dup_dict.items():
         s = Setter()
         vl = Validator()
@@ -326,42 +341,40 @@ if __name__ == "__main__":
                 g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Block')
                 s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be blocked')
-            hostnames.append(hostname)
         elif (vl.check_hostname(hostname, allowed_hosts) == True):
             for idx in idx_list:
                 g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Allow')
                 s.comments_column_setter(dframe, idx, 'Allowed but investigate ..')
-            hostnames.append(hostname)
         elif (vl.check_hostname(hostname, ignored_hosts) == True):
             for idx in idx_list:
                 g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Ignore')
                 s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be ignored')
-            hostnames.append(hostname)
         else:
             for idx in idx_list:
                 g = Getter(idx)
                 if (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
-                    new_idx_list.append(idx)
+                    s.comments_column_setter(dframe, idx, 'Denied Destination Port')
                 elif (vl.check_ports(g.dst_port, udpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
-                    new_idx_list.append(idx)
+                    s.comments_column_setter(dframe, idx, 'Denied Destination Port')
                 elif (vl.check_hits(g.hit_nmbr, 5) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
                     s.comments_column_setter(dframe, idx, 'Less then 5 hits')
-                    new_idx_list.append(idx)
                 elif (vl.check_broadcast(g.dst_ip) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
-                    new_idx_list.append(idx)
+                    s.comments_column_setter(dframe, idx, 'Broadcast IP Address')
                 else:
                     for subnet in denied_subnets:
                         if vl.check_ip(g.dst_ip, subnet) == True:
                             s.action_column_setter(dframe, idx, 'Block')
                             s.comments_column_setter(dframe, idx, 'Bad subnet')
-                            new_idx_list.append(idx)
-                            break
                         else:
                             s.comments_column_setter(dframe, idx, 'UNDEFINED')
-
+    if dframe:
+        print(dframe.sort_values(by=['Action'], ascending=True))
+        
+##    final_logfile = input('Please Insert Final Excel Log File  Desired Location ...')
+##    dframe.to_excel(final_logfile)

@@ -6,6 +6,7 @@ from tkinter import ttk
 from tkinter import font
 import re
 import sys
+import inspect
 from tkinter_pandas_toplevel import Enter_Frame, CheckBox_Frame, Frame, Input_Frame
 
 allowed_hosts = ['ndlg']
@@ -58,7 +59,7 @@ class Setter():
         df.at[index, 'Comments'] = comment
         
         
-class Checker():
+class Validator():
     def __init__(self, index):
         self.index = index
     def check_ports(self, port, port_list):
@@ -86,52 +87,48 @@ class Checker():
    
 
 def starter():
-    global dframe1
     root = tk.Tk()
     fr = Frame(root)
-    dframe1 = fr.filepath
-    print(dframe1)
+    if fr.file:
+        dframe1 =  fr.file
+        print(dframe1)
     root.mainloop()
-    print(checkbox_dict)
 
 if __name__=='__main__':
     
-##    dframe = pd.read_excel (r'C:\Users\user\Documents\MAIPU - RFC.xlsx')
-    starter()
-    sys.exit()
+    dframe = pd.read_excel (r'C:\Users\user\Documents\MAIPU - RFC.xlsx')
     pd.set_option('display.max_columns', None)
     pd.set_option('max_colwidth', None)
     pd.set_option('display.max_rows', None)
     pd.set_option("expand_frame_repr", False)
     host_list = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_list()
     host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
+
     duplicate_hosts_list(host_list, host_dict)                       ## Sort Duplicate Hostnames
-    
     while len(new_list)>0:
         duplicate_hosts_list(new_list, host_dict)
 
     for hostname,idx_list in dup_dict.items():
         s = Setter()
-        vl = Validator()
         if hostname == 'Cannot resolve hostname':
             for idx in idx_list:
-                g = getter(idx)
-                c = checker(idx)
-                if (c.check_ports(g.dst_port, tcpdenied_ports) == True):
+                g = Getter(idx)
+                vl = Validator(idx)
+                if (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
                     new_idx_list.append(idx)
-                elif (c.check_ports(g.dst_port, udpdenied_ports) == True):
+                elif (vl.check_ports(g.dst_port, udpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
                     new_idx_list.append(idx)
-                elif (c.check_hits(g.hit_nmbr, 5) == True):
+                elif (vl.check_hits(g.hit_nmbr, 5) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
                     new_idx_list.append(idx)
-                elif (c.check_broadcast(g.dst_ip) == True):
+                elif (vl.check_broadcast(g.dst_ip) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
                     new_idx_list.append(idx)
                 else:
                     for subnet in denied_subnets:
-                        if c.check_ip(g.dst_ip, subnet) == True:
+                        if vl.check_ip(g.dst_ip, subnet) == True:
                             s.action_column_setter(dframe, idx, 'Block')
                             new_idx_list.append(idx)
                             break
@@ -156,13 +153,13 @@ if __name__=='__main__':
             hostnames.append(hostname)
 
         else:
-            for index in idx_list:
-                c = Checker(index)
-                if (c.check_ports(g.dst_port, udpdenied_ports) == True) or (c.check_ports(g.dst_port, tcpdenied_ports) == True):
+            for idx in idx_list:
+                vl = Validator(idx)
+                if (vl.check_ports(g.dst_port, udpdenied_ports) == True) or (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
                     s.action_column_setter(dframe, index, 'Block')
                     s.comments_column_setter(dframe, index, 'Traffic to/from this Port will be blocked')
                     new_idx_list.append(index)
-                elif (c.check_hits(g.hit_nmbr, 5) == True):
+                elif (vl.check_hits(g.hit_nmbr, 5) == True):
                     s.action_column_setter(dframe, index, 'Ignore')
                     s.comments_column_setter(dframe, index, 'Less then 5 hits')
                     new_idx_list.append(index)

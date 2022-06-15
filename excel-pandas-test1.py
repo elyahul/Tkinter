@@ -16,13 +16,11 @@ tcpdenied_ports = ['5061', '3389']
 udpdenied_ports = ['5100']
 most_used_ports = ['80', '443', '389', '139', '445' , '137', '135']
 denied_subnets = ["192.168.0.0/24"]
-dup_dict = {}
-hostnames = []
-new_idx_list = []
 
-def duplicate_hosts_list(lst, dct):
+def duplicate_hosts_list(lst, dct):                   ### function for sorting duplicate hostnames
     global key_list
     global new_list
+    global dup_dict
     new_list = []
     key_list = []
     for idx,hostname in enumerate(lst):
@@ -38,9 +36,6 @@ def duplicate_hosts_list(lst, dct):
     for key in key_list:
         host_dict.pop(key)
     return (new_list, dup_dict)
-
-
-
 
 class Getter():
     def __init__(self, index):
@@ -59,8 +54,7 @@ class Setter():
     @staticmethod
     def comments_column_setter(df, index, comment):
         df.at[index, 'Comments'] = comment
-        
-        
+     
 class Validator():
     def check_ports(self, port, port_list):
         var = port in port_list
@@ -84,90 +78,71 @@ class Validator():
             if var == True:
                 break
         return var
-   
 
-def starter():
+
+if __name__ == "__main__":
     root = tk.Tk()
     fr = Frame(root)
-    if fr.file:
-        dframe1 =  fr.file
-        print(dframe1)
     root.mainloop()
-
-if __name__=='__main__':
     
-    dframe = pd.read_excel (r'C:\Users\user\Documents\MAIPU - RFC.xlsx')
     pd.set_option('display.max_columns', None)
     pd.set_option('max_colwidth', None)
     pd.set_option('display.max_rows', None)
     pd.set_option("expand_frame_repr", False)
-##    print(dframe)
-##    sys.exit()
+    print(dframe)
     host_list = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_list()
     host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
-    duplicate_hosts_list(host_list, host_dict)                       ## Sort Duplicate Hostnames
     
+    duplicate_hosts_list(host_list, host_dict)                      ### Sort Duplicate Hostnames
     while len(new_list)>0:
-        duplicate_hosts_list(new_list, host_dict)
+        duplicate_hosts_list(new_list, host_dict)                   ### Create final dict with duplicate hostnemes
+        
     for hostname,idx_list in dup_dict.items():
         s = Setter()
         vl = Validator()
         if (vl.check_hostname(hostname, denied_hosts) == True):
             for idx in idx_list:
+                g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Block')
                 s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be blocked')
-            hostnames.append(hostname)
         elif (vl.check_hostname(hostname, allowed_hosts) == True):
             for idx in idx_list:
+                g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Allow')
                 s.comments_column_setter(dframe, idx, 'Allowed but investigate ..')
-            hostnames.append(hostname)
         elif (vl.check_hostname(hostname, ignored_hosts) == True):
             for idx in idx_list:
+                g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Ignore')
                 s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be ignored')
-            hostnames.append(hostname)
         else:
             for idx in idx_list:
                 g = Getter(idx)
                 if (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
-                    new_idx_list.append(idx)
+                    s.comments_column_setter(dframe, idx, 'Denied Destination Port')
                 elif (vl.check_ports(g.dst_port, udpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
-                    new_idx_list.append(idx)
+                    s.comments_column_setter(dframe, idx, 'Denied Destination Port')
                 elif (vl.check_hits(g.hit_nmbr, 5) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
                     s.comments_column_setter(dframe, idx, 'Less then 5 hits')
-                    new_idx_list.append(idx)
                 elif (vl.check_broadcast(g.dst_ip) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
-                    new_idx_list.append(idx)
+                    s.comments_column_setter(dframe, idx, 'Broadcast IP Address')
                 else:
                     for subnet in denied_subnets:
                         if vl.check_ip(g.dst_ip, subnet) == True:
                             s.action_column_setter(dframe, idx, 'Block')
                             s.comments_column_setter(dframe, idx, 'Bad subnet')
-                            new_idx_list.append(idx)
-                            break
                         else:
                             s.comments_column_setter(dframe, idx, 'UNDEFINED')
-            
-            
-print(dframe.sort_values(by=['Action'], ascending=True))
+
+    print(dframe.sort_values(by=['Action'], ascending=True))
 ##    final_logfile = input('Please Insert Final Excel Log File  Desired Location ...')
 ##    dframe.to_excel(final_logfile)
 
 
-##            if len(idx_list) > len(new_idx_list):
-##                idx_set = set(idx_list).difference(set(new_idx_list))
-##                idx_list = list(idx_set)
-##                dup_dict[hostname] = idx_list
-##            else:
-##                hostnames.append(hostname)
-##    for hostname in hostnames:
-##        dup_dict.pop(hostname)
-        
-   
+
     
 
