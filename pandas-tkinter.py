@@ -17,6 +17,7 @@ tcpdenied_ports = ['5061', '3389',]
 udpdenied_ports = ['5100']
 most_used_ports = ['80', '443', '389', '139', '445' , '137', '135']
 denied_subnets = ["192.168.0.0/24"]
+variables = [allowed_hosts, denied_hosts, tcpdenied_ports, udpdenied_ports]
 
 
 class Frame(ttk.Frame):                                                                                   ## Main Frame Class Definition   
@@ -33,6 +34,7 @@ class Frame(ttk.Frame):                                                         
         self.submit_button.grid(row=5, column=0, padx=15, pady=(12,5), sticky='w')
         self.master.bind('<Return>', self.submit)
         self.master.bind('<Escape>', self.close)
+        self.focus_force()
         self.grid()
    
     def center_window(self, width, height):
@@ -151,8 +153,6 @@ class Input_Frame(tk.Tk):
         super().__init__()
         self._checkbox_dict = None
         self.var = text_var
-        global checkbox_dict
-        checkbox_dict = {}
         self.title('New Variables Entry Widget')
         self._input = tk.StringVar()
         self._input_value = None
@@ -181,12 +181,13 @@ class Input_Frame(tk.Tk):
         self.input_entry.insert(0, self.text)
         self.clicked = self.input_entry.bind('<Button-1>', self.click)     
 
-    def submit(self, event):
+    def submit(self, event=None):
         self._input_value = self._input.get()
-        if 'port' in self.var:
-            self.port_checker(self.var)
-        elif 'host' in self.var:
+        print(self._input_value)
+        if 'host' in self.var:
             self.host_checker(self.var)
+        elif 'port' in self.var:
+            self.port_checker(self.var)
     
     def port_checker(self, var):
         if not self._input_value:
@@ -195,7 +196,9 @@ class Input_Frame(tk.Tk):
         else:
             port_list = [value.strip() for value in self._input_value.split(',')]
             for port in port_list:
-                if port.isnumeric() == False:
+                if not port:
+                    port_list.remove(port)
+                elif  port.isnumeric()) == False:
                     self.error_label.config(text=port+' - Invalid Port Value')
                     self.error_label.grid(row=3, columnspan=2, pady=(2,7))
                     break
@@ -203,7 +206,6 @@ class Input_Frame(tk.Tk):
                 self.error_label.config(text='Input Excepted')
                 self.error_label.grid(row=3, columnspan=2, pady=(2,7))
                 checkbox_dict[var] = port_list
-                print(checkbox_dict)
                 self.destroy()
                 return checkbox_dict
             
@@ -214,7 +216,9 @@ class Input_Frame(tk.Tk):
         else:
             host_list = [value.strip() for value in self._input_value.split(',')]
             for host in host_list:
-                if host.isnumeric() == True:
+                if not host:
+                    host_list.remove(host)
+                elif host.isnumeric() == True:
                     self.error_label.config(text=host+' - Invalid Host Name')
                     self.error_label.grid(row=3, columnspan=2, pady=(2,7))
                     break
@@ -222,22 +226,20 @@ class Input_Frame(tk.Tk):
                 self.error_label.config(text='Input Excepted')
                 self.error_label.grid(row=3, columnspan=2, pady=(2,7))
                 checkbox_dict[var] = host_list
-                print(checkbox_dict)
                 self.destroy()
                 return checkbox_dict
                 
-   
     def checkbox_dict(self):
         self._checkbox_dict = checkbox_dict
         return self._checkbox_dict
     
     def close(self, event):
         self.destroy()
-    
-        
-
+   
 class CheckBox_Frame(tk.Toplevel):
     def __init__(self, master, checkbars=[]):
+        global checkbox_dict
+        checkbox_dict = {}
         super().__init__()
         self.var_dict = {}
         self.title('CheckBox Frame')
@@ -295,7 +297,6 @@ class Setter():
         df.at[index, 'Comments'] = comment
      
 class Validator():
-        
     def ip_validator(self, ip_addr):
         try:
             ipaddress.ip_address(ip_addr)
@@ -309,19 +310,19 @@ class Validator():
                 messagebox.showerror(title='Invalid IP Address Value', message=error)
                 sys.exit()
                 
-
     def check_ports(self, port, port_list):
         var = port in port_list
         return var
+    
     def check_ip(self, ip, subnet):
         self.ip_validator(ip)
         if _nakedip:
-##            print(_nakedip)
             ip = _nakedip
         host  = ipaddress.ip_address(ip)
         net = ipaddress.ip_network(subnet)
         var = host in net
         return var
+    
     def check_broadcast(self, ip):
         self.ip_validator(ip)
         if _nakedip:
@@ -330,22 +331,22 @@ class Validator():
         broadcast = iface.network.broadcast_address
         var = ip in broadcast.exploded
         return var
+    
     def check_hits(self, hits, hit_nmbr):
         var = (hits <= hit_nmbr)
         return var
+    
     def check_hostname(self, hostname, host_list):
         for pattern in host_list:
-            var = bool(re.search(pattern, hostname))
+            var = bool(re.search(pattern, hostname.lower()))
             if var == True:
                 break
         return var
     
 def duplicate_hosts_list(dct):                                              ## function for sorting duplicate hostnames
     global dup_dict
-    global key_list
-    global seen
-    seen = []
     dup_dict = {}
+    seen = []
     for key,value in dct.items():
         if value not in seen:
             seen.append(value)
@@ -355,7 +356,7 @@ def duplicate_hosts_list(dct):                                              ## f
         else:
             key_list.append(key)
             dup_dict[value] = key_list
-    return (seen, dup_dict)
+    return dup_dict
 
 
 if __name__ == "__main__":
@@ -364,14 +365,27 @@ if __name__ == "__main__":
     fr.center_window(440, 200)
     root.mainloop()
     
+    for key,value in checkbox_dict.items():
+        if key == 'allowed_hosts':
+            for var in value:
+                allowed_hosts.append(var)
+        elif key == 'denied_hosts':
+            for var in value:
+                denied_hosts.append(var)
+        elif key == 'tcpdenied_ports':
+            for var in value:
+                tcpdenied_ports.append(var)
+        elif key == 'udpdenied_port':
+            for var in value:
+                udpdenied_port.append(var)
+        
     pd.set_option('display.max_columns', None)
     pd.set_option('max_colwidth', None)
     pd.set_option('display.max_rows', None)
     pd.set_option("expand_frame_repr", False)
     host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
        
-    duplicate_hosts_list(host_dict)                                                            ## Sort Duplicate Hostnames
-##    dup_dict.pop('Cannot resolve hostname')
+    duplicate_hosts_list(host_dict)                                                                  ## Sort Duplicate Destination Hosts
     
     for hostname,idx_list in dup_dict.items():
         s = Setter()
@@ -404,7 +418,6 @@ if __name__ == "__main__":
                     s.action_column_setter(dframe, idx, 'Ignore')
                     s.comments_column_setter(dframe, idx, 'Less then 5 hits')
                 elif (vl.check_broadcast(g.dst_ip) == True):
-                    print(g.dst_ip)
                     s.action_column_setter(dframe, idx, 'Ignore')
                     s.comments_column_setter(dframe, idx, 'Broadcast IP Address')
                 else:
