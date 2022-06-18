@@ -17,7 +17,6 @@ tcpdenied_ports = ['5061', '3389',]
 udpdenied_ports = ['5100']
 most_used_ports = ['80', '443', '389', '139', '445' , '137', '135']
 denied_subnets = ["192.168.0.0/24"]
-variables = [allowed_hosts, denied_hosts, tcpdenied_ports, udpdenied_ports]
 
 
 class Frame(ttk.Frame):                                                                                   ## Main Frame Class Definition   
@@ -62,6 +61,8 @@ class Enter_Frame(tk.Toplevel):
         y = self.master.winfo_y()
         self.geometry("+%d+%d" % (x + 100, y + 200))
         self.title('Log file path Entry Frame')
+        global source_file
+        source_file = ''
         self._path = None
         self._filepath = None 
         self.filepath_var = tk.StringVar()
@@ -92,7 +93,7 @@ class Enter_Frame(tk.Toplevel):
     def submit(self, event=None):
         self._path = self.filepath_var.get()
         self.filepath_validation()
-        self.filepath                                                                              
+        self.dframe_create                                                                              
         self.after(1000, self.chain_foo)
     
     def filepath_validation(self):
@@ -116,18 +117,18 @@ class Enter_Frame(tk.Toplevel):
         else:
              self.error_label.config(text='Input Excepted')
              self.error_label.grid(row=4, columnspan=2, pady=(2,7))
-             print(self._path)
-             self.after(500, self.withdraw)
+             self.after(800, self.withdraw)
              self._filepath = self._path
              return  self._filepath
         
     @property
-    def filepath(self):
+    def dframe_create(self):
         global dframe
         try:
             if self._filepath:
+                source_file = self._filepath 
                 dframe = pd.read_excel(self._filepath)
-                return dframe
+                return dframe, source_file
         except ValueError as error:
             messagebox.showerror(message=error)
             self.master.destroy()
@@ -140,7 +141,7 @@ class Enter_Frame(tk.Toplevel):
                 self.checkbox_strater()
             elif result == False:
                 self.master.destroy()
-               
+                       
     def checkbox_strater(self):
         ch = CheckBox_Frame(self, ['allowed_hosts', 'denied_hosts', 'tcpdenied_ports', 'udpdenied_ports'])
 
@@ -198,7 +199,7 @@ class Input_Frame(tk.Tk):
             for port in port_list:
                 if not port:
                     port_list.remove(port)
-                elif  port.isnumeric()) == False:
+                elif  port.isnumeric() == False:
                     self.error_label.config(text=port+' - Invalid Port Value')
                     self.error_label.grid(row=3, columnspan=2, pady=(2,7))
                     break
@@ -227,15 +228,114 @@ class Input_Frame(tk.Tk):
                 self.error_label.grid(row=3, columnspan=2, pady=(2,7))
                 checkbox_dict[var] = host_list
                 self.destroy()
+                self.checkbox_dict_add(checkbox_dict)
                 return checkbox_dict
                 
     def checkbox_dict(self):
         self._checkbox_dict = checkbox_dict
         return self._checkbox_dict
     
+    def checkbox_dict_add(dct):
+        for key,value in dct.items():
+            if key == 'allowed_hosts':
+                for var in value:
+                    allowed_hosts.append(var)
+            elif key == 'denied_hosts':
+                for var in value:
+                    denied_hosts.append(var)
+            elif key == 'tcpdenied_ports':
+                for var in value:
+                    tcpdenied_ports.append(var)
+            elif key == 'udpdenied_port':
+                for var in value:
+                    udpdenied_port.append(var)
+        return (allowed_hosts, denied_hosts, tcpdenied_ports, udpdenied_ports)
+        
     def close(self, event):
         self.destroy()
-   
+
+class Child_Input_Frame(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        x = self.master.winfo_x()
+        y = self.master.winfo_y()
+        self.master.geometry("+%d+%d" % (x + 100, y + 200))
+        self.master.title('FilePath Input Window')
+        self._path = None
+        self._filepath = None 
+        self.filepath_var = tk.StringVar()
+        self.input_entry = ttk.Entry(master, textvariable=self.filepath_var, width=50)
+        self.input_entry.insert(0, "Input Excel Log File Path ")
+        self.input_entry.grid(row=2, columnspan=2, padx=5,pady=(2,7))
+        self.clear_button = ttk.Button(master, text='Clear', command=self.clear_entry)
+        self.clear_button.grid(row=5, column=1, padx=5, pady=(12,5), sticky='w')
+        self.submit_button = ttk.Button(master, text='Submit', command=self.submit)
+        self.submit_button.grid(row=5, column=0, padx=5, pady=(12,5), sticky='e')
+        self.error_label = ttk.Label(master, text=None, font=("Courier", 13))
+        self.error_label.configure(foreground="red")
+        self.clicked = self.input_entry.bind('<Button-1>', self.click)                                                 ## bind the "Entry Widget" with mouse click
+        self.master.bind('<Return>', self.submit)
+        self.master.bind('<Escape>', self.close)
+        self.master.focus_force()
+        
+    def click(self, event):                                                                                            ## Define a function to clear the content of the text widget
+        self.input_entry.delete(0, 'end')
+        self.input_entry.unbind('<Button-1>', self.clicked)
+           
+    def clear_entry(self):
+        self.input_entry.delete(0, 'end')
+        self.error_label.grid_forget()
+        self.input_entry.insert(0, "Input Log File path")
+        self.clicked = self.input_entry.bind('<Button-1>', self.click)     
+           
+    def submit(self, event=None):
+        self._path = self.filepath_var.get()
+        self.filepath_validation()
+
+    ##    @classmethod
+    ##    def default_filepath(cls, sourcefile):
+    ##        final_logfile = ''.join([os.path.splitext(sourcefile)[0]+'_final', os.path.splitext(sourcefile)[1]])
+        self.file_create(final_logfile)
+    ##        return final_logfile
+        
+            
+    def filepath_validation(self):
+        if  not self._path:
+            self.error_label.config(text='Empty Input')
+            self.error_label.grid(row=4, columnspan=2, pady=(2,7))
+        elif os.path.isabs(self._path) == False:
+            self.error_label.config(text='Invalid Input')
+            self.error_label.grid(row=4, columnspan=2, pady=(2,7))
+##        elif os.path.splitext(self._path)[1] == '.csv':
+##            self.error_label.config(text='Csv file format cannot be determined, input correct filepath')
+##            self.error_label.grid(row=4, columnspan=2, pady=(2,7))
+##            print(self._path)
+        elif os.path.splitext(self._path)[1] != '.xlsx':
+            self.error_label.config(text='Excel file format cannot be determined, input correct filepath')
+            self.error_label.grid(row=4, columnspan=2, pady=(2,7))
+            print(self._path, os.path.splitext(self._path)[1])
+        else:
+             self.error_label.config(text='Input Excepted')
+             self.error_label.grid(row=4, columnspan=2, pady=(2,7))
+             self._filepath = self._path
+             self.file_create(self._filepath)
+             self.master.destroy()
+             return  self._filepath
+        
+    
+    def file_create(self, file):
+        try:
+            with open(file, 'w') as f:
+                dframe.to_excel(file)
+        except ValueError as error:
+            messagebox.showerror(message=error)
+            self.master.destroy()
+            cls.default_path(source_file)
+            
+    def close(self, event):
+        self.master.destroy()
+        sys.exit()
+         
 class CheckBox_Frame(tk.Toplevel):
     def __init__(self, master, checkbars=[]):
         global checkbox_dict
@@ -275,7 +375,7 @@ class CheckBox_Frame(tk.Toplevel):
         iframe.mainloop()
 
     def close(self, event):
-        self.destroy()
+        self.master.destroy()
 
 ## Pandas DataFrame Calculation Code         
 class Getter():
@@ -365,20 +465,6 @@ if __name__ == "__main__":
     fr.center_window(440, 200)
     root.mainloop()
     
-    for key,value in checkbox_dict.items():
-        if key == 'allowed_hosts':
-            for var in value:
-                allowed_hosts.append(var)
-        elif key == 'denied_hosts':
-            for var in value:
-                denied_hosts.append(var)
-        elif key == 'tcpdenied_ports':
-            for var in value:
-                tcpdenied_ports.append(var)
-        elif key == 'udpdenied_port':
-            for var in value:
-                udpdenied_port.append(var)
-        
     pd.set_option('display.max_columns', None)
     pd.set_option('max_colwidth', None)
     pd.set_option('display.max_rows', None)
@@ -386,7 +472,7 @@ if __name__ == "__main__":
     host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
        
     duplicate_hosts_list(host_dict)                                                                  ## Sort Duplicate Destination Hosts
-    
+
     for hostname,idx_list in dup_dict.items():
         s = Setter()
         vl = Validator()
@@ -394,26 +480,26 @@ if __name__ == "__main__":
             for idx in idx_list:
                 g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Block')
-                s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be blocked')
+                s.comments_column_setter(dframe, idx, 'Traffic to host will be blocked')
         elif (vl.check_hostname(hostname, allowed_hosts) == True):
             for idx in idx_list:
                 g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Allow')
-                s.comments_column_setter(dframe, idx, 'Allowed but investigate ..')
+                s.comments_column_setter(dframe, idx, 'Conformation needed')
         elif (vl.check_hostname(hostname, ignored_hosts) == True):
             for idx in idx_list:
                 g = Getter(idx)
                 s.action_column_setter(dframe, idx, 'Ignore')
-                s.comments_column_setter(dframe, idx, 'Traffic to/from this server will be ignored')
+                s.comments_column_setter(dframe, idx, 'Traffic to host will be ignored')
         else:
             for idx in idx_list:
                 g = Getter(idx)
                 if (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
-                    s.comments_column_setter(dframe, idx, 'Traffic to this Destination Port is forbidden')
+                    s.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
                 elif (vl.check_ports(g.dst_port, udpdenied_ports) == True):
                     s.action_column_setter(dframe, idx, 'Block')
-                    s.comments_column_setter(dframe, idx, 'Traffic to this Destination Port is forbidden')
+                    s.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
                 elif (vl.check_hits(g.hit_nmbr, 5) == True):
                     s.action_column_setter(dframe, idx, 'Ignore')
                     s.comments_column_setter(dframe, idx, 'Less then 5 hits')
@@ -424,11 +510,13 @@ if __name__ == "__main__":
                     for subnet in denied_subnets:
                         if vl.check_ip(g.dst_ip, subnet) == True:
                             s.action_column_setter(dframe, idx, 'Block')
-                            s.comments_column_setter(dframe, idx, 'Bad subnet')
+                            s.comments_column_setter(dframe, idx, 'Forbiden subnet')
                         else:
-                            s.comments_column_setter(dframe, idx, 'UNDEFINED')
+                            s.action_column_setter(dframe, idx, 'Verification required')
+                            s.comments_column_setter(dframe, idx, 'Undefined')
     if not dframe.empty:
         print(dframe.sort_values(by=['Action'], ascending=True))
-        
-##    final_logfile = input('Please Insert Final Excel Log File  Desired Location ...')
-##    dframe.to_excel(final_logfile)
+    root = tk.Tk()
+    child_iframe = Child_Input_Frame(root)
+    root.mainloop()
+
