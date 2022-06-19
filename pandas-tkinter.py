@@ -1,3 +1,33 @@
+
+##########################################################################
+# This code was created to sort Tufin Log File which is created
+# by Tufin application based on Firewall traffic monitoring.
+#
+# Two columns were added to the original Tufin's log file.
+# Column names are: "Comment" and "Action". The result of "Action" column
+# is set after code execution and depends on global variables
+# which defined manually (all variables are stored separetly using JSON)
+# or alternatevly could be created and added during code execution.
+# Three possible results of "Action" column calculation are:
+# "Allow", "Block" or "Ignore".
+#
+# "Comments" column is optional and can be easily ommited or
+# modified due to code modular structure and free access to
+# code source itself.
+#
+# Due to code modularity the creation of new columns on original log file
+# does not impact script execution. New column's data is easily accessed
+# and any manipulations are possible via adding corresponding function to
+# the appropriate Class.
+#
+# This script is packed into Python package. It can be executed on Windows
+# or Linux OS. Json dictionaries are created and saved automatically
+# without User ....
+# The graphycal interface is created by Tkinter module and has full
+# interaction with the rest of the script.
+# All rights reserved to ELIL
+############################################################################
+
 import pandas as pd
 import ipaddress
 import tkinter as tk
@@ -15,7 +45,6 @@ denied_hosts = ['lync', 'skp', 'epo', 'lexc', 'skp', 'evg', 'nowev']
 ignored_hosts = ['rar7', 'rap7', 'nlm', 'dc']
 tcpdenied_ports = ['5061', '3389',]
 udpdenied_ports = ['5100']
-most_used_ports = ['80', '443', '389', '139', '445' , '137', '135']
 denied_subnets = ["192.168.0.0/24"]
 
 
@@ -61,8 +90,6 @@ class Enter_Frame(tk.Toplevel):
         y = self.master.winfo_y()
         self.geometry("+%d+%d" % (x + 100, y + 200))
         self.title('Log file path Entry Frame')
-        global source_file
-        source_file = ''
         self._path = None
         self._filepath = None 
         self.filepath_var = tk.StringVar()
@@ -117,6 +144,7 @@ class Enter_Frame(tk.Toplevel):
         else:
              self.error_label.config(text='Input Excepted')
              self.error_label.grid(row=4, columnspan=2, pady=(2,7))
+             self.error_label.configure(foreground="green")
              self.after(800, self.withdraw)
              self._filepath = self._path
              return  self._filepath
@@ -124,6 +152,8 @@ class Enter_Frame(tk.Toplevel):
     @property
     def dframe_create(self):
         global dframe
+        global source_file
+        
         try:
             if self._filepath:
                 source_file = self._filepath 
@@ -167,16 +197,16 @@ class Input_Frame(tk.Tk):
         self.submit_button.grid(row=5, column=0, padx=5, pady=(12,5), sticky='e')
         self.error_label = ttk.Label(self, text=None, font=("Courier", 13))
         self.error_label.configure(foreground="red")
-        self.clicked = self.input_entry.bind('<Button-1>', self.click)                         ## bind the "Entry Widget" with mouse click
+        self.clicked = self.input_entry.bind('<Button-1>', self.click)          ##bind the "Ent ry Widget" with mouse click
         self.bind('<Return>', self.submit)
         self.bind('<Escape>', self.close)
         self.focus_force()
         
-    def click(self, event):                                                                    ## define a function to clear the content of the text widget
+    def click(self, event):                                      ##define a function to clear the content of the text widget
         self.input_entry.delete(0, 'end')
         self.input_entry.unbind('<Button-1>', self.clicked)
           
-    def clear_entry(self):                                                                     ## handle mouse click event
+    def clear_entry(self):                                                                        ##handle mouse click event
         self.input_entry.delete(0, 'end') 
         self.error_label.grid_forget()
         self.input_entry.insert(0, self.text)
@@ -205,6 +235,7 @@ class Input_Frame(tk.Tk):
                     break
             else:
                 self.error_label.config(text='Input Excepted')
+                self.error_label.configure(foreground='green')
                 self.error_label.grid(row=3, columnspan=2, pady=(2,7))
                 checkbox_dict[var] = port_list
                 self.destroy()
@@ -225,6 +256,7 @@ class Input_Frame(tk.Tk):
                     break
             else:
                 self.error_label.config(text='Input Excepted')
+                self.error_label.configure(foreground='green')
                 self.error_label.grid(row=3, columnspan=2, pady=(2,7))
                 checkbox_dict[var] = host_list
                 self.destroy()
@@ -239,13 +271,13 @@ class Input_Frame(tk.Tk):
         for key,value in dct.items():
             if key == 'allowed_hosts':
                 for var in value:
-                    allowed_hosts.append(var)
+                    allowed_hoststtr.append(var)
             elif key == 'denied_hosts':
                 for var in value:
-                    denied_hosts.append(var)
+                    denied_hoststtr.append(var)
             elif key == 'tcpdenied_ports':
                 for var in value:
-                    tcpdenied_ports.append(var)
+                    tcpdenied_portsttr.append(var)
             elif key == 'udpdenied_port':
                 for var in value:
                     udpdenied_port.append(var)
@@ -264,7 +296,7 @@ class Child_Input_Frame(ttk.Frame):
         self._path = None
         self._filepath = None 
         self.filepath_var = tk.StringVar()
-        self.input_entry = ttk.Entry(master, textvariable=self.filepath_var, width=50)
+        self.input_entry = ttk.Entry(master, textvariable=self.filepath_var, width=55)
         self.input_entry.insert(0, "Input Excel Log File Path ")
         self.input_entry.grid(row=2, columnspan=2, padx=5,pady=(2,7))
         self.clear_button = ttk.Button(master, text='Clear', command=self.clear_entry)
@@ -292,50 +324,47 @@ class Child_Input_Frame(ttk.Frame):
         self._path = self.filepath_var.get()
         self.filepath_validation()
 
-    ##    @classmethod
-    ##    def default_filepath(cls, sourcefile):
-    ##        final_logfile = ''.join([os.path.splitext(sourcefile)[0]+'_final', os.path.splitext(sourcefile)[1]])
-        self.file_create(final_logfile)
-    ##        return final_logfile
+    
+    def default_filepath(self, sourcefile):
+        self.master.destroy()
+        messagebox.showinfo(title='Notification',
+                    message='Due to input error, log file is written to preconfigured location')
+        result = r''.join([os.path.splitext(sourcefile)[0]+'_final', os.path.splitext(sourcefile)[1]])
+        with open(result, 'w') as r:
+            dframe.to_excel(result)
+        messagebox.showinfo(title='Notification',
+                    message='File location is: '+result)
         
-            
     def filepath_validation(self):
-        if  not self._path:
+        if not self._path:
             self.error_label.config(text='Empty Input')
             self.error_label.grid(row=4, columnspan=2, pady=(2,7))
         elif os.path.isabs(self._path) == False:
             self.error_label.config(text='Invalid Input')
             self.error_label.grid(row=4, columnspan=2, pady=(2,7))
-##        elif os.path.splitext(self._path)[1] == '.csv':
-##            self.error_label.config(text='Csv file format cannot be determined, input correct filepath')
-##            self.error_label.grid(row=4, columnspan=2, pady=(2,7))
-##            print(self._path)
         elif os.path.splitext(self._path)[1] != '.xlsx':
             self.error_label.config(text='Excel file format cannot be determined, input correct filepath')
             self.error_label.grid(row=4, columnspan=2, pady=(2,7))
-            print(self._path, os.path.splitext(self._path)[1])
         else:
-             self.error_label.config(text='Input Excepted')
-             self.error_label.grid(row=4, columnspan=2, pady=(2,7))
-             self._filepath = self._path
-             self.file_create(self._filepath)
-             self.master.destroy()
-             return  self._filepath
-        
-    
+            self.error_label.config(text='Validating Input')
+            self.error_label.configure(foreground='green')
+            self.error_label.grid(row=4, columnspan=2, pady=(2,7))
+            self._filepath = self._path
+            if not self._filepath == source_file:
+                self.file_create(self._filepath)
+            else:
+                self.default_filepath(source_file)
+       
     def file_create(self, file):
-        try:
-            with open(file, 'w') as f:
-                dframe.to_excel(file)
-        except ValueError as error:
-            messagebox.showerror(message=error)
-            self.master.destroy()
-            cls.default_path(source_file)
-            
+        with open(file, 'w') as f:
+            dframe.to_excel(file)
+            self.after(500, self.error_label.config(text='File was written to the destination path'))
+            self.after(1500, self.master.destroy)
+                        
     def close(self, event):
         self.master.destroy()
         sys.exit()
-         
+             
 class CheckBox_Frame(tk.Toplevel):
     def __init__(self, master, checkbars=[]):
         global checkbox_dict
@@ -349,7 +378,7 @@ class CheckBox_Frame(tk.Toplevel):
             self.var = tk.BooleanVar()
             self.ChkBttn = ttk.Checkbutton(self, text=checkbar, width = 40, variable=self.var)
             self.ChkBttn.pack(padx = 5, pady = 5)
-            self.vars.append(self.var)
+            self.varsttr.append(self.var)
         self.submit_button = ttk.Button(self, text='Submit', command=self.submit)
         self.submit_button.pack(padx = 2, pady = 2)
         self.bind('<Return>', self.submit)
@@ -443,7 +472,7 @@ class Validator():
                 break
         return var
     
-def duplicate_hosts_list(dct):                                              ## function for sorting duplicate hostnames
+def duplicate_hosts_list(dct):          ##this function sorts duplicate hostnames
     global dup_dict
     dup_dict = {}
     seen = []
@@ -460,63 +489,64 @@ def duplicate_hosts_list(dct):                                              ## f
 
 
 if __name__ == "__main__":
+    ##Start GUI Application 
     root = tk.Tk()
     fr = Frame(root)
     fr.center_window(440, 200)
     root.mainloop()
-    
+    ##Start Pandas DataFrame Sorting
     pd.set_option('display.max_columns', None)
     pd.set_option('max_colwidth', None)
     pd.set_option('display.max_rows', None)
     pd.set_option("expand_frame_repr", False)
     host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
-       
-    duplicate_hosts_list(host_dict)                                                                  ## Sort Duplicate Destination Hosts
-
+    duplicate_hosts_list(host_dict)                           ##Sort Duplicate Destination Hosts
+    print(source_file)
     for hostname,idx_list in dup_dict.items():
-        s = Setter()
+        sttr = Setter()
         vl = Validator()
         if (vl.check_hostname(hostname, denied_hosts) == True):
             for idx in idx_list:
-                g = Getter(idx)
-                s.action_column_setter(dframe, idx, 'Block')
-                s.comments_column_setter(dframe, idx, 'Traffic to host will be blocked')
+                gttr = Getter(idx)
+                sttr.action_column_setter(dframe, idx, 'Block')
+                sttr.comments_column_setter(dframe, idx, 'Traffic to host will be blocked')
         elif (vl.check_hostname(hostname, allowed_hosts) == True):
             for idx in idx_list:
-                g = Getter(idx)
-                s.action_column_setter(dframe, idx, 'Allow')
-                s.comments_column_setter(dframe, idx, 'Conformation needed')
+                gttr = Getter(idx)
+                sttr.action_column_setter(dframe, idx, 'Allow')
+                sttr.comments_column_setter(dframe, idx, 'Conformation needed')
         elif (vl.check_hostname(hostname, ignored_hosts) == True):
             for idx in idx_list:
-                g = Getter(idx)
-                s.action_column_setter(dframe, idx, 'Ignore')
-                s.comments_column_setter(dframe, idx, 'Traffic to host will be ignored')
+                gttr = Getter(idx)
+                sttr.action_column_setter(dframe, idx, 'Ignore')
+                sttr.comments_column_setter(dframe, idx, 'Traffic to host will be ignored')
         else:
             for idx in idx_list:
-                g = Getter(idx)
-                if (vl.check_ports(g.dst_port, tcpdenied_ports) == True):
-                    s.action_column_setter(dframe, idx, 'Block')
-                    s.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
-                elif (vl.check_ports(g.dst_port, udpdenied_ports) == True):
-                    s.action_column_setter(dframe, idx, 'Block')
-                    s.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
-                elif (vl.check_hits(g.hit_nmbr, 5) == True):
-                    s.action_column_setter(dframe, idx, 'Ignore')
-                    s.comments_column_setter(dframe, idx, 'Less then 5 hits')
-                elif (vl.check_broadcast(g.dst_ip) == True):
-                    s.action_column_setter(dframe, idx, 'Ignore')
-                    s.comments_column_setter(dframe, idx, 'Broadcast IP Address')
+                gttr = Getter(idx)
+                if (vl.check_ports(gttr.dst_port, tcpdenied_ports) == True):
+                    sttr.action_column_setter(dframe, idx, 'Block')
+                    sttr.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
+                elif (vl.check_ports(gttr.dst_port, udpdenied_ports) == True):
+                    sttr.action_column_setter(dframe, idx, 'Block')
+                    sttr.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
+                elif (vl.check_hits(gttr.hit_nmbr, 5) == True):
+                    sttr.action_column_setter(dframe, idx, 'Ignore')
+                    sttr.comments_column_setter(dframe, idx, 'Less then 5 hits')
+                elif (vl.check_broadcast(gttr.dst_ip) == True):
+                    sttr.action_column_setter(dframe, idx, 'Ignore')
+                    sttr.comments_column_setter(dframe, idx, 'Broadcast IP Address')
                 else:
                     for subnet in denied_subnets:
-                        if vl.check_ip(g.dst_ip, subnet) == True:
-                            s.action_column_setter(dframe, idx, 'Block')
-                            s.comments_column_setter(dframe, idx, 'Forbiden subnet')
+                        if vl.check_ip(gttr.dst_ip, subnet) == True:
+                            sttr.action_column_setter(dframe, idx, 'Block')
+                            sttr.comments_column_setter(dframe, idx, 'Forbiden subnet')
                         else:
-                            s.action_column_setter(dframe, idx, 'Verification required')
-                            s.comments_column_setter(dframe, idx, 'Undefined')
+                            sttr.action_column_setter(dframe, idx, 'Verification required')
+                            sttr.comments_column_setter(dframe, idx, 'Undefined')
+    ##Gui Input Window for target result Excel log file 
     if not dframe.empty:
-        print(dframe.sort_values(by=['Action'], ascending=True))
-    root = tk.Tk()
-    child_iframe = Child_Input_Frame(root)
-    root.mainloop()
+##        print(dframe.sort_values(by=['Action'], ascending=True))
+        root = tk.Tk()
+        child_iframe = Child_Input_Frame(root)
+        root.mainloop()
 
