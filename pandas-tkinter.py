@@ -77,7 +77,7 @@ class Frame(ttk.Frame):                                                         
     def submit(self, event=None):
         self.master.withdraw()
         ef = Enter_Frame(self)
-        ef.protocol("WM_DELETE_WINDOW",lambda: self.quit())
+        ef.protocol("WM_DELETE_WINDOW", self.master.destroy)
 
     def close(self, event):
         self.master.destroy()
@@ -175,7 +175,7 @@ class Enter_Frame(tk.Toplevel):
     def checkbox_strater(self):
         ch = CheckBox_Frame(self, ['allowed_hosts', 'denied_hosts', 'tcpdenied_ports', 'udpdenied_ports'])
 
-    def close(self, event):
+    def close(self, event=None):
         self.master.deiconify()
         self.destroy()
             
@@ -198,6 +198,7 @@ class Input_Frame(tk.Tk):
         self.error_label = ttk.Label(self, text=None, font=("Courier", 13))
         self.error_label.configure(foreground="red")
         self.clicked = self.input_entry.bind('<Button-1>', self.click)          ##bind the "Ent ry Widget" with mouse click
+        self.protocol("WM_DELETE_WINDOW", self.close)
         self.bind('<Return>', self.submit)
         self.bind('<Escape>', self.close)
         self.focus_force()
@@ -214,7 +215,6 @@ class Input_Frame(tk.Tk):
 
     def submit(self, event=None):
         self._input_value = self._input.get()
-        print(self._input_value)
         if 'host' in self.var:
             self.host_checker(self.var)
         elif 'port' in self.var:
@@ -283,8 +283,9 @@ class Input_Frame(tk.Tk):
                     udpdenied_port.append(var)
         return (allowed_hosts, denied_hosts, tcpdenied_ports, udpdenied_ports)
         
-    def close(self, event):
+    def close(self, event=None):
         self.destroy()
+        sys.exit()
 
 class Child_Input_Frame(ttk.Frame):
     def __init__(self, master):
@@ -308,6 +309,7 @@ class Child_Input_Frame(ttk.Frame):
         self.clicked = self.input_entry.bind('<Button-1>', self.click)                                                 ## bind the "Entry Widget" with mouse click
         self.master.bind('<Return>', self.submit)
         self.master.bind('<Escape>', self.close)
+        self.master.protocol("WM_DELETE_WINDOW", self.close)
         self.master.focus_force()
         
     def click(self, event):                                                                                            ## Define a function to clear the content of the text widget
@@ -361,7 +363,7 @@ class Child_Input_Frame(ttk.Frame):
             self.after(500, self.error_label.config(text='File was written to the destination path'))
             self.after(1500, self.master.destroy)
                         
-    def close(self, event):
+    def close(self, event=None):
         self.master.destroy()
         sys.exit()
              
@@ -378,7 +380,7 @@ class CheckBox_Frame(tk.Toplevel):
             self.var = tk.BooleanVar()
             self.ChkBttn = ttk.Checkbutton(self, text=checkbar, width = 40, variable=self.var)
             self.ChkBttn.pack(padx = 5, pady = 5)
-            self.varsttr.append(self.var)
+            self.vars.append(self.var)
         self.submit_button = ttk.Button(self, text='Submit', command=self.submit)
         self.submit_button.pack(padx = 2, pady = 2)
         self.bind('<Return>', self.submit)
@@ -495,58 +497,59 @@ if __name__ == "__main__":
     fr.center_window(440, 200)
     root.mainloop()
     ##Start Pandas DataFrame Sorting
-    pd.set_option('display.max_columns', None)
-    pd.set_option('max_colwidth', None)
-    pd.set_option('display.max_rows', None)
-    pd.set_option("expand_frame_repr", False)
-    host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
-    duplicate_hosts_list(host_dict)                           ##Sort Duplicate Destination Hosts
-    print(source_file)
-    for hostname,idx_list in dup_dict.items():
-        sttr = Setter()
-        vl = Validator()
-        if (vl.check_hostname(hostname, denied_hosts) == True):
-            for idx in idx_list:
-                gttr = Getter(idx)
-                sttr.action_column_setter(dframe, idx, 'Block')
-                sttr.comments_column_setter(dframe, idx, 'Traffic to host will be blocked')
-        elif (vl.check_hostname(hostname, allowed_hosts) == True):
-            for idx in idx_list:
-                gttr = Getter(idx)
-                sttr.action_column_setter(dframe, idx, 'Allow')
-                sttr.comments_column_setter(dframe, idx, 'Conformation needed')
-        elif (vl.check_hostname(hostname, ignored_hosts) == True):
-            for idx in idx_list:
-                gttr = Getter(idx)
-                sttr.action_column_setter(dframe, idx, 'Ignore')
-                sttr.comments_column_setter(dframe, idx, 'Traffic to host will be ignored')
-        else:
-            for idx in idx_list:
-                gttr = Getter(idx)
-                if (vl.check_ports(gttr.dst_port, tcpdenied_ports) == True):
-                    sttr.action_column_setter(dframe, idx, 'Block')
-                    sttr.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
-                elif (vl.check_ports(gttr.dst_port, udpdenied_ports) == True):
-                    sttr.action_column_setter(dframe, idx, 'Block')
-                    sttr.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
-                elif (vl.check_hits(gttr.hit_nmbr, 5) == True):
-                    sttr.action_column_setter(dframe, idx, 'Ignore')
-                    sttr.comments_column_setter(dframe, idx, 'Less then 5 hits')
-                elif (vl.check_broadcast(gttr.dst_ip) == True):
-                    sttr.action_column_setter(dframe, idx, 'Ignore')
-                    sttr.comments_column_setter(dframe, idx, 'Broadcast IP Address')
-                else:
-                    for subnet in denied_subnets:
-                        if vl.check_ip(gttr.dst_ip, subnet) == True:
-                            sttr.action_column_setter(dframe, idx, 'Block')
-                            sttr.comments_column_setter(dframe, idx, 'Forbiden subnet')
-                        else:
-                            sttr.action_column_setter(dframe, idx, 'Verification required')
-                            sttr.comments_column_setter(dframe, idx, 'Undefined')
-    ##Gui Input Window for target result Excel log file 
     if not dframe.empty:
-##        print(dframe.sort_values(by=['Action'], ascending=True))
-        root = tk.Tk()
-        child_iframe = Child_Input_Frame(root)
-        root.mainloop()
+        pd.set_option('display.max_columns', None)
+        pd.set_option('max_colwidth', None)
+        pd.set_option('display.max_rows', None)
+        pd.set_option("expand_frame_repr", False)
+        host_dict = dframe.Destination_HostName.sort_values(ascending=True, inplace=False).to_dict()
+        duplicate_hosts_list(host_dict)                           ##Sort Duplicate Destination Hosts
+        
+        for hostname,idx_list in dup_dict.items():
+            sttr = Setter()
+            vl = Validator()
+            if (vl.check_hostname(hostname, denied_hosts) == True):
+                for idx in idx_list:
+                    gttr = Getter(idx)
+                    sttr.action_column_setter(dframe, idx, 'Block')
+                    sttr.comments_column_setter(dframe, idx, 'Traffic to host will be blocked')
+            elif (vl.check_hostname(hostname, allowed_hosts) == True):
+                for idx in idx_list:
+                    gttr = Getter(idx)
+                    sttr.action_column_setter(dframe, idx, 'Allow')
+                    sttr.comments_column_setter(dframe, idx, 'Conformation needed')
+            elif (vl.check_hostname(hostname, ignored_hosts) == True):
+                for idx in idx_list:
+                    gttr = Getter(idx)
+                    sttr.action_column_setter(dframe, idx, 'Ignore')
+                    sttr.comments_column_setter(dframe, idx, 'Traffic to host will be ignored')
+            else:
+                for idx in idx_list:
+                    gttr = Getter(idx)
+                    if (vl.check_ports(gttr.dst_port, tcpdenied_ports) == True):
+                        sttr.action_column_setter(dframe, idx, 'Block')
+                        sttr.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
+                    elif (vl.check_ports(gttr.dst_port, udpdenied_ports) == True):
+                        sttr.action_column_setter(dframe, idx, 'Block')
+                        sttr.comments_column_setter(dframe, idx, 'Forbidden Destination Port')
+                    elif (vl.check_hits(gttr.hit_nmbr, 5) == True):
+                        sttr.action_column_setter(dframe, idx, 'Ignore')
+                        sttr.comments_column_setter(dframe, idx, 'Less then 5 hits')
+                    elif (vl.check_broadcast(gttr.dst_ip) == True):
+                        sttr.action_column_setter(dframe, idx, 'Ignore')
+                        sttr.comments_column_setter(dframe, idx, 'Broadcast IP Address')
+                    else:
+                        for subnet in denied_subnets:
+                            if vl.check_ip(gttr.dst_ip, subnet) == True:
+                                sttr.action_column_setter(dframe, idx, 'Block')
+                                sttr.comments_column_setter(dframe, idx, 'Forbiden subnet')
+                            else:
+                                sttr.action_column_setter(dframe, idx, 'Verification required')
+                                sttr.comments_column_setter(dframe, idx, 'Undefined')
+        ##Gui Input Window for target result Excel log file 
+        if not dframe.empty:
+    ##        print(dframe.sort_values(by=['Action'], ascending=True))
+            root = tk.Tk()
+            child_iframe = Child_Input_Frame(root)
+            root.mainloop()
 
