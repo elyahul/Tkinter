@@ -285,8 +285,7 @@ class Input_Frame(tk.Tk):
         
     def close(self, event=None):
         self.destroy()
-        sys.exit()
-
+       
 class Child_Input_Frame(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
@@ -383,6 +382,7 @@ class CheckBox_Frame(tk.Toplevel):
             self.vars.append(self.var)
         self.submit_button = ttk.Button(self, text='Submit', command=self.submit)
         self.submit_button.pack(padx = 2, pady = 2)
+        self.protocol("WM_DELETE_WINDOW", self.close)
         self.bind('<Return>', self.submit)
         self.bind('<Escape>', self.close)
         self.focus_force()
@@ -405,7 +405,7 @@ class CheckBox_Frame(tk.Toplevel):
         iframe = Input_Frame(var)
         iframe.mainloop()
 
-    def close(self, event):
+    def close(self, event=None):
         self.master.destroy()
 
 ## Pandas DataFrame Calculation Code         
