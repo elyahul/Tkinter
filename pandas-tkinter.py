@@ -39,13 +39,15 @@ import os.path
 import sys
 import time
 import pdb
+from config.definitions import ROOT_DIR
 
-allowed_hosts = ['ndlg','dpfwslba', 'emp', 'limsx', 'fs', 'web-ie11' ]
+
+allowed_hosts = ['ndlg', 'dpfwslba', 'emp', 'limsx', 'fs', 'web-ie11']
 denied_hosts = ['lync', 'skp', 'epo', 'lexc', 'skp', 'evg', 'nowev']
 ignored_hosts = ['rar7', 'rap7', 'nlm', 'dc']
 tcpdenied_ports = ['5061', '3389',]
 udpdenied_ports = ['5100']
-denied_subnets = ["192.168.0.0/24"]
+denied_subnets = ['192.168.0.0/24']
 
 
 class Frame(ttk.Frame):                                                                                   ## Main Frame Class Definition   
@@ -220,7 +222,7 @@ class Input_Frame(tk.Tk):
         elif 'port' in self.var:
             self.port_checker(self.var)
     
-    def port_checker(self, var):
+    def port_checker(self, var:int):
         if not self._input_value:
             self.error_label.config(text='Empty Input')
             self.error_label.grid(row=3, columnspan=2, pady=(2,7))
@@ -267,20 +269,21 @@ class Input_Frame(tk.Tk):
         self._checkbox_dict = checkbox_dict
         return self._checkbox_dict
     
+    @staticmethod
     def checkbox_dict_add(dct):
         for key,value in dct.items():
             if key == 'allowed_hosts':
                 for var in value:
-                    allowed_hoststtr.append(var)
+                    allowed_hosts.append(var)
             elif key == 'denied_hosts':
                 for var in value:
-                    denied_hoststtr.append(var)
+                    denied_hosts.append(var)
             elif key == 'tcpdenied_ports':
                 for var in value:
-                    tcpdenied_portsttr.append(var)
+                    tcpdenied_ports.append(var)
             elif key == 'udpdenied_port':
                 for var in value:
-                    udpdenied_port.append(var)
+                    udpdenied_ports.append(var)
         return (allowed_hosts, denied_hosts, tcpdenied_ports, udpdenied_ports)
         
     def close(self, event=None):
@@ -491,6 +494,8 @@ def duplicate_hosts_list(dct):          ##this function sorts duplicate hostname
 
 
 if __name__ == "__main__":
+print(os.path.join(ROOT_DIR, 'data', 'variables.json'))
+    
     ##Start GUI Application 
     root = tk.Tk()
     fr = Frame(root)
@@ -547,9 +552,9 @@ if __name__ == "__main__":
                                 sttr.action_column_setter(dframe, idx, 'Verification required')
                                 sttr.comments_column_setter(dframe, idx, 'Undefined')
         ##Gui Input Window for target result Excel log file 
-        if not dframe.empty:
+       
     ##        print(dframe.sort_values(by=['Action'], ascending=True))
-            root = tk.Tk()
-            child_iframe = Child_Input_Frame(root)
-            root.mainloop()
+        root = tk.Tk()
+        child_iframe = Child_Input_Frame(root)
+        root.mainloop()
 
